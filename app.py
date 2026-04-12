@@ -86,12 +86,11 @@ def get_vader_features(texts):
 @st.cache_resource(show_spinner="Training model... (2-3 min, only once)")
 def load_model():
     df = pd.read_csv("data.csv")
-    df = df.dropna(subset=["text", "sentiment"])
-    df["text"] = df["text"].astype(str)
+    df = df.dropna()
+    df["text"]      = df["text"].astype(str)
+    df["clean"]     = df["clean"].astype(str)
     df["sentiment"] = df["sentiment"].astype(int)
-
-    df["clean"] = df["text"].apply(clean_text)
-    df = df[df["clean"].str.strip().str.len() > 0]
+    df = df[df["clean"].str.strip().str.len() > 2]
 
     X_tr_raw, X_te_raw, y_tr, y_te = train_test_split(
         df["text"], df["sentiment"],
@@ -137,7 +136,6 @@ def predict(text):
     conf       = proba[pred] * 100
     return label, conf, cleaned
 
-# ── UI ──
 st.title("🎯 AI-Driven Sentiment Analysis")
 st.markdown("**Brand & Product Intelligence System** — BCA Capstone | DIT University | CAN304")
 st.divider()
