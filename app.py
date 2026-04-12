@@ -79,12 +79,7 @@ def get_vader_features(texts):
 # ── Train model (cached) ──
 @st.cache_resource(show_spinner="Training model... (2-3 min, only once)")
 def load_model():
-    df = pd.read_csv(
-        "https://raw.githubusercontent.com/datasets/sentiment140/main/data/training.csv",
-        encoding='latin-1', header=None,
-        names=['sentiment','id','date','query','user','text'],
-        nrows=100000
-    )
+    df = pd.read_csv("data.csv")
     df['sentiment'] = df['sentiment'].map({0: 0, 4: 1})
     df = df[['text','sentiment']].dropna()
     df['clean'] = df['text'].apply(clean_text)
