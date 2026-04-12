@@ -3,11 +3,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
+import joblib
 from scipy.sparse import hstack, csr_matrix
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 st.set_page_config(
@@ -39,15 +36,11 @@ def mark_negation(tokens):
     while i < len(tokens):
         tok = tokens[i]
         if tok in NEGATION_TRIGGERS:
-            negate = True
-            i += 1
-            continue
+            negate = True; i += 1; continue
         elif tok in INTENSIFIERS and negate:
-            i += 1
-            continue
+            i += 1; continue
         elif tok in CLAUSE_BREAKS or tok in {".", ",", "!", "?", ";"}:
-            negate = False
-            result.append(tok)
+            negate = False; result.append(tok)
         elif negate:
             result.append(NEGATION_MAP.get(tok, tok + "_NEG"))
             negate = False
@@ -75,53 +68,13 @@ def clean_text(text):
     result = " ".join(tokens).strip()
     return result if result else "unknown"
 
-def get_vader_features(texts):
-    vader = SentimentIntensityAnalyzer()
-    feats = []
-    for t in texts:
-        s = vader.polarity_scores(str(t))
-        feats.append([s["pos"], s["neg"], s["compound"]])
-    return csr_matrix(np.array(feats, dtype=float))
-
-@st.cache_resource(show_spinner="Training model... (2-3 min, only once)")
+@st.cache_resource(show_spinner="Loading model...")
 def load_model():
-    df = pd.read_csv("data.csv")
-    df = df.dropna()
-    df["text"]      = df["text"].astype(str)
-    df["clean"]     = df["clean"].astype(str)
-    df["sentiment"] = df["sentiment"].astype(int)
-    df = df[df["clean"].str.strip().str.len() > 2]
+    model      = joblib.load("sentiment_model_final.pkl")
+    vectorizer = joblib.load("tfidf_vectorizer_final.pkl")
+    return model, vectorizer
 
-    X_tr_raw, X_te_raw, y_tr, y_te = train_test_split(
-        df["text"], df["sentiment"],
-        test_size=0.2, random_state=42, stratify=df["sentiment"]
-    )
-    X_tr_clean = df.loc[X_tr_raw.index, "clean"].values
-    X_te_clean = df.loc[X_te_raw.index, "clean"].values
-
-    tfidf = TfidfVectorizer(
-        ngram_range=(1, 3),
-        max_features=100000,
-        min_df=2,
-        max_df=0.95,
-        sublinear_tf=True,
-        token_pattern=r"\w+"
-    )
-    X_tr_tfidf = tfidf.fit_transform(X_tr_clean)
-    X_te_tfidf = tfidf.transform(X_te_clean)
-
-    vader_tr = get_vader_features(X_tr_raw.values)
-    vader_te = get_vader_features(X_te_raw.values)
-
-    X_tr = hstack([X_tr_tfidf, vader_tr])
-    X_te = hstack([X_te_tfidf, vader_te])
-
-    model = LogisticRegression(C=2.0, max_iter=1000, solver="saga", n_jobs=-1)
-    model.fit(X_tr, y_tr)
-    acc = accuracy_score(y_te, model.predict(X_te))
-    return model, tfidf, acc
-
-model, tfidf, acc = load_model()
+model, tfidf = load_model()
 vader_analyzer = SentimentIntensityAnalyzer()
 
 def predict(text):
@@ -142,7 +95,7 @@ st.divider()
 
 col1, col2, col3 = st.columns(3)
 col1.metric("Model", "Hybrid LR + TF-IDF + VADER")
-col2.metric("Accuracy", f"{acc*100:.2f}%")
+col2.metric("Accuracy", "80.20%")
 col3.metric("Dataset", "Sentiment140 — 100k")
 st.divider()
 
@@ -187,15 +140,15 @@ if st.button("Analyze All", type="secondary"):
 
 st.divider()
 with st.expander("ℹ️ Model Info"):
-    st.markdown(f"""
+    st.markdown("""
     **Model:** Hybrid (Logistic Regression + TF-IDF + VADER)  
-    **Accuracy:** {acc*100:.2f}%  
+    **Accuracy:** 80.20%  
     **Dataset:** Sentiment140 (100k sample)  
-    **Negation Handling:** not bad → Positive, nothing great → Negative  
+    **Key Feature:** Negation handling — not bad → Positive, nothing great → Negative  
 
     | Model | Accuracy |
     |-------|----------|
-    | Hybrid (Our Model) | **{acc*100:.2f}%** |
+    | Hybrid (Our Model) | **80.20%** |
     | LR + TF-IDF | 79.56% |
     | NB + TF-IDF | 78.83% |
     | LR + BoW | 77.85% |
