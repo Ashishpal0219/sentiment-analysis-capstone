@@ -248,10 +248,22 @@ elif option == "Live Brand Monitor":
     st.title("🌐 Live Brand Market Monitor")
     st.caption("Real-time news sentiment — search any brand or product.")
 
-    query  = st.text_input("Brand / Product Name", placeholder="e.g. Apple, iPhone, Tesla")
-    period = st.selectbox("Time Period", ["1d", "7d", "1m"], index=1)
+    query = st.text_input("Brand / Product Name", placeholder="e.g. Apple, iPhone, Tesla, DIT University")
 
-    period_map = {"1d": 1, "7d": 7, "1m": 30}
+    col1, col2 = st.columns(2)
+    with col1:
+        period_label = st.selectbox(
+            "Time Period",
+            ["Last 24 Hours", "Last 7 Days", "Last 30 Days"],
+            index=1
+        )
+    with col2:
+        filter_sentiment = st.selectbox(
+            "Filter by Sentiment",
+            ["All", "Positive 🟢", "Negative 🔴", "Neutral ⚪"]
+        )
+
+    period_map = {"Last 24 Hours": "1d", "Last 7 Days": "7d", "Last 30 Days": "30d"}
 
     if st.button("Generate Report", type="primary"):
         if not query.strip():
@@ -263,39 +275,42 @@ elif option == "Live Brand Monitor":
                     gn = GNews(
                         language="en",
                         country="IN",
-                        max_results=20,
-                        period=f"{period_map[period]}d"
+                        max_results=50,
+                        period=period_map[period_label]
                     )
                     articles = gn.get_news(query)
 
                 if not articles:
-                    st.warning("No news found. Try a different query.")
+                    st.warning("No news found. Try a different query or time period.")
                 else:
+                    query_words = [w.lower() for w in query.strip().split()]
                     data = []
                     for art in articles:
                         title = art.get("title", "")
                         link  = art.get("url", art.get("link", ""))
                         date  = art.get("published date", "")
-
                         if not title:
                             continue
-
+                        title_lower = title.lower()
+                        if not any(w in title_lower for w in query_words):
+                            continue
                         lbl, cf, _, sc = get_hybrid_sentiment(title, model, tfidf, "news")
                         data.append({
                             "Headline":   title,
                             "Sentiment":  f"{'🟢' if lbl=='Positive' else ('🔴' if lbl=='Negative' else '⚪')} {lbl}",
+                            "Label":      lbl,
                             "Confidence": f"{cf}%",
                             "Date":       date,
                             "Link":       link
                         })
 
                     if not data:
-                        st.warning("No valid articles found.")
+                        st.warning("No relevant articles found for this query.")
                     else:
-                        df_news = pd.DataFrame(data)
-                        pos = sum(1 for d in data if "Positive" in d["Sentiment"])
-                        neg = sum(1 for d in data if "Negative" in d["Sentiment"])
-                        neu = len(data) - pos - neg
+                        # Summary metrics (always full data)
+                        pos = sum(1 for d in data if d["Label"] == "Positive")
+                        neg = sum(1 for d in data if d["Label"] == "Negative")
+                        neu = sum(1 for d in data if d["Label"] == "Neutral")
 
                         c1, c2, c3, c4 = st.columns(4)
                         c1.metric("Total Headlines", len(data))
@@ -303,11 +318,21 @@ elif option == "Live Brand Monitor":
                         c3.metric("Negative 🔴", neg)
                         c4.metric("Neutral ⚪",  neu)
 
+                        # Apply filter for table
+                        filter_map = {
+                            "All":          data,
+                            "Positive 🟢":  [d for d in data if d["Label"] == "Positive"],
+                            "Negative 🔴":  [d for d in data if d["Label"] == "Negative"],
+                            "Neutral ⚪":   [d for d in data if d["Label"] == "Neutral"],
+                        }
+                        filtered = filter_map[filter_sentiment]
+
                         import plotly.express as px
                         counts_df = pd.DataFrame({
                             "Sentiment": ["Positive", "Negative", "Neutral"],
                             "Count":     [pos, neg, neu]
                         })
+
                         col1, col2 = st.columns([1, 2])
                         with col1:
                             fig = px.pie(
@@ -322,8 +347,17 @@ elif option == "Live Brand Monitor":
                             )
                             st.plotly_chart(fig, use_container_width=True)
                         with col2:
+                            if filter_sentiment != "All":
+                                st.caption(f"Showing: {filter_sentiment} ({len(filtered)} articles)")
+                            df_show = pd.DataFrame([{
+                                "Headline":   d["Headline"],
+                                "Sentiment":  d["Sentiment"],
+                                "Confidence": d["Confidence"],
+                                "Date":       d["Date"],
+                                "Link":       d["Link"]
+                            } for d in filtered])
                             st.dataframe(
-                                df_news,
+                                df_show,
                                 column_config={
                                     "Link": st.column_config.LinkColumn("Open Article")
                                 },
