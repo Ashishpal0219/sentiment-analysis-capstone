@@ -247,68 +247,90 @@ if option == "Home":
 elif option == "Live Brand Monitor":
     st.title("🌐 Live Brand Market Monitor")
     st.caption("Real-time news sentiment — search any brand or product.")
-    query  = st.text_input("Brand / Product Name", placeholder="e.g. Apple, Tesla, Samsung")
+
+    query  = st.text_input("Brand / Product Name", placeholder="e.g. Apple, iPhone, Tesla")
     period = st.selectbox("Time Period", ["1d", "7d", "1m"], index=1)
+
+    period_map = {"1d": 1, "7d": 7, "1m": 30}
 
     if st.button("Generate Report", type="primary"):
         if not query.strip():
             st.warning("Enter a brand or product name!")
         else:
             try:
-                from GoogleNews import GoogleNews
+                from gnews import GNews
                 with st.spinner(f"Fetching news for '{query}'..."):
-                    gn = GoogleNews(lang="en", region="IN", period=period)
-                    gn.clear()
-                    gn.search(query)
-                    results = gn.result()
-                if not results:
-                    st.warning("No news found. Try different query or time period.")
+                    gn = GNews(
+                        language="en",
+                        country="IN",
+                        max_results=20,
+                        period=f"{period_map[period]}d"
+                    )
+                    articles = gn.get_news(query)
+
+                if not articles:
+                    st.warning("No news found. Try a different query.")
                 else:
                     data = []
-                    for art in results:
-                        if not art.get("title"):
+                    for art in articles:
+                        title = art.get("title", "")
+                        link  = art.get("url", art.get("link", ""))
+                        date  = art.get("published date", "")
+
+                        if not title:
                             continue
-                        link = art["link"]
-                        if "&ved=" in link:
-                            link = link.split("&ved=")[0]
-                        if link.startswith("./"):
-                            link = "https://news.google.com/" + link[2:]
-                        lbl, cf, _, sc = get_hybrid_sentiment(art["title"], model, tfidf, "news")
+
+                        lbl, cf, _, sc = get_hybrid_sentiment(title, model, tfidf, "news")
                         data.append({
-                            "Headline":   art["title"],
+                            "Headline":   title,
                             "Sentiment":  f"{'🟢' if lbl=='Positive' else ('🔴' if lbl=='Negative' else '⚪')} {lbl}",
                             "Confidence": f"{cf}%",
-                            "Date":       art.get("date", ""),
+                            "Date":       date,
                             "Link":       link
                         })
-                    df_news = pd.DataFrame(data)
-                    pos = sum(1 for d in data if "Positive" in d["Sentiment"])
-                    neg = sum(1 for d in data if "Negative" in d["Sentiment"])
-                    neu = len(data) - pos - neg
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Total", len(data))
-                    c2.metric("Positive 🟢", pos)
-                    c3.metric("Negative 🔴", neg)
-                    c4.metric("Neutral ⚪",  neu)
-                    try:
+
+                    if not data:
+                        st.warning("No valid articles found.")
+                    else:
+                        df_news = pd.DataFrame(data)
+                        pos = sum(1 for d in data if "Positive" in d["Sentiment"])
+                        neg = sum(1 for d in data if "Negative" in d["Sentiment"])
+                        neu = len(data) - pos - neg
+
+                        c1, c2, c3, c4 = st.columns(4)
+                        c1.metric("Total Headlines", len(data))
+                        c2.metric("Positive 🟢", pos)
+                        c3.metric("Negative 🔴", neg)
+                        c4.metric("Neutral ⚪",  neu)
+
                         import plotly.express as px
                         counts_df = pd.DataFrame({
-                            "Sentiment": ["Positive","Negative","Neutral"],
+                            "Sentiment": ["Positive", "Negative", "Neutral"],
                             "Count":     [pos, neg, neu]
                         })
                         col1, col2 = st.columns([1, 2])
                         with col1:
-                            fig = px.pie(counts_df, names="Sentiment", values="Count",
-                                         color="Sentiment",
-                                         color_discrete_map={"Positive":"#28a745","Negative":"#dc3545","Neutral":"#6c757d"},
-                                         title=f"Sentiment — {query}")
+                            fig = px.pie(
+                                counts_df, names="Sentiment", values="Count",
+                                color="Sentiment",
+                                color_discrete_map={
+                                    "Positive": "#28a745",
+                                    "Negative": "#dc3545",
+                                    "Neutral":  "#6c757d"
+                                },
+                                title=f"Sentiment — {query}"
+                            )
                             st.plotly_chart(fig, use_container_width=True)
                         with col2:
-                            st.dataframe(df_news,
-                                         column_config={"Link": st.column_config.LinkColumn("Open Article")},
-                                         hide_index=True, use_container_width=True)
-                    except Exception:
-                        st.dataframe(df_news, hide_index=True, use_container_width=True)
+                            st.dataframe(
+                                df_news,
+                                column_config={
+                                    "Link": st.column_config.LinkColumn("Open Article")
+                                },
+                                hide_index=True,
+                                use_container_width=True
+                            )
+
             except Exception as e:
                 st.error(f"Error: {e}")
 
