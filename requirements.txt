@@ -5,3 +5,5 @@ numpy
 vaderSentiment
 joblib
 scipy
+plotly
+GoogleNews==1.6.14
