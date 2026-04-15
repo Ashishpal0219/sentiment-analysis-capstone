@@ -743,11 +743,11 @@ product review intelligence, and negation-aware sentiment classification.
 
 ---
 ### Team
-| Name | SAP ID | Role |
-|------|--------|------|
-| Ashish Pal | 1000021731 | ML & Backend |
-| Shaurya Pundir | 1000021913 | Research & Analysis |
-| Abhishek | 1000022005 | Data & Evaluation |
+| Name | SAP ID |
+|------|--------|
+| Ashish Pal | 1000021731 |
+| Shaurya Pundir | 1000021913 |
+| Abhishek | 1000022005 |
 
 **Faculty Advisor:** Riya Dhama &nbsp;|&nbsp; riya.dhama@dituniversity.edu.in
         """)
