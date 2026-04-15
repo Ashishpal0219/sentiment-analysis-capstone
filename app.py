@@ -375,7 +375,7 @@ elif option == "Live Brand Monitor":
     st.divider()
 
     query = st.text_input("Brand / Product Name",
-                           placeholder="e.g. Apple, iPhone, Samsung, Tesla, DIT University")
+                           placeholder="e.g. Apple, iPhone, Samsung, Tesla")
 
     col1, col2 = st.columns(2)
     with col1:
