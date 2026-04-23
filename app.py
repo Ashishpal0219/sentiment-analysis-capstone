@@ -226,22 +226,22 @@ if option == "Home":
     st.divider()
     st.markdown('<p class="section-header">📝 Analyze Text</p>', unsafe_allow_html=True)
 
-    user_input = st.text_area(
-        "Enter text — single line or paste multiple reviews (one per line):",
-        height=140,
-        placeholder="e.g.\nnot bad at all\nnothing great about this product\nthis is absolutely amazing!"
-    )
-
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        source_type = st.selectbox(
-            "Text Source Type",
-            ["general", "review", "social", "news"],
-            help="Affects ML vs VADER weighting. review=ML 80% | news=VADER 60% | social=balanced | general=default"
+    with st.form(key="analyze_form", clear_on_submit=False):
+        user_input = st.text_area(
+            "Enter text — single line or paste multiple reviews (one per line):",
+            height=140,
+            placeholder="e.g.\nnot bad at all\nnothing great about this product\nthis is absolutely amazing!"
         )
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        analyze = st.button("Analyze Sentiment", type="primary", use_container_width=True)
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            source_type = st.selectbox(
+                "Text Source Type",
+                ["general", "review", "social", "news"],
+                help="Affects ML vs VADER weighting. review=ML 80% | news=VADER 60% | social=balanced | general=default"
+            )
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            analyze = st.form_submit_button("Analyze Sentiment", type="primary", use_container_width=True)
 
     if analyze:
         if user_input.strip():
