@@ -195,7 +195,7 @@ st.sidebar.markdown("**Project**")
 st.sidebar.caption("AI-Driven Sentiment Analysis for\nBrand & Product Intelligence")
 st.sidebar.divider()
 st.sidebar.markdown("**Model**")
-st.sidebar.caption("Hybrid LR + TF-IDF + VADER")
+st.sidebar.caption("Hybrid (Logistic Regression + TF-IDF + VADER)")
 st.sidebar.caption("Accuracy: **80.55%**")  # CHANGE 1
 st.sidebar.divider()
 st.sidebar.caption("BCA Capstone | CAN304\nDIT University")
@@ -209,7 +209,7 @@ if option == "Home":
     st.divider()
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Model", "Hybrid LR + TF-IDF + VADER")
+    c1.metric("Model", "Hybrid (Logistic Regression + TF-IDF + VADER)")
     c2.metric("Accuracy", "80.55%", "+13.24% vs VADER")  # CHANGE 2
     c3.metric("Training Dataset", "Sentiment140")
     c4.metric("Training Samples", "100,000")
@@ -649,10 +649,17 @@ elif option == "Model Performance":
     c4.metric("F1-Score",           "0.81")     # CHANGE 4
     st.divider()
 
-    # CHANGE 3 — updated model leaderboard with BiLSTM and TextCNN
+    # updated model leaderboard with full names
     model_data = pd.DataFrame({
-        "Model":    ["VADER", "TextCNN (DL)", "NB + BoW", "BiLSTM (DL)",
-                     "NB + TF-IDF", "LR + TF-IDF", "Hybrid Champion"],
+        "Model":    [
+            "VADER",
+            "TextCNN (Deep Learning)",
+            "Naive Bayes + Bag of Words",
+            "BiLSTM (Deep Learning)",
+            "Naive Bayes + TF-IDF",
+            "Logistic Regression + TF-IDF",
+            "Hybrid (Logistic Regression + TF-IDF + VADER)"
+        ],
         "Accuracy": [67.31, 77.16, 77.45, 78.92, 78.83, 79.57, 80.55],
         "Type":     ["Lexicon", "Deep Learning", "ML", "Deep Learning", "ML", "ML", "Hybrid"]
     })
@@ -703,7 +710,7 @@ elif option == "Model Performance":
         )
 
     with col2:
-        st.markdown("**Classification Report — Hybrid Model**")
+        st.markdown("**Classification Report — Hybrid (Logistic Regression + TF-IDF + VADER)**")
         st.dataframe(pd.DataFrame({
             "Class":     ["Negative", "Positive", "Macro Avg"],
             "Precision": [0.81, 0.81, 0.81],   # CHANGE 4
@@ -720,7 +727,7 @@ elif option == "Model Performance":
     It is included as a **baseline** to demonstrate that supervised ML outperforms
     unsupervised lexicon methods.
 
-    In our hybrid model, VADER contributes as **extra signal** (3 features: pos, neg,
+    In our Hybrid (Logistic Regression + TF-IDF + VADER) model, VADER contributes as **extra signal** (3 features: pos, neg,
     compound scores) alongside 100,000 TF-IDF features — not as the primary classifier.
     This combination gives us +13.24% over VADER standalone.
     """)
