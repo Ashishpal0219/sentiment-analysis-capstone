@@ -175,13 +175,14 @@ def get_hybrid_sentiment(text, model, tfidf, source_type="general"):
 
     return label, round(confidence * 100, 1), cleaned, round(final_score, 4)
 
-@st.cache_resource(show_spinner="Loading model...")
 def load_model():
-    model = joblib.load("sentiment_model_final.pkl")
-    tfidf = joblib.load("tfidf_vectorizer_final.pkl")
-    return model, tfidf
+    if "model" not in st.session_state or "tfidf" not in st.session_state:
+        st.session_state.model = joblib.load("sentiment_model_final.pkl")
+        st.session_state.tfidf = joblib.load("tfidf_vectorizer_final.pkl")
 
-model, tfidf = load_model()
+load_model()
+model = st.session_state.model
+tfidf = st.session_state.tfidf
 
 # ── SIDEBAR ──
 st.sidebar.markdown("## 🧠 Intelligence Engine")
@@ -243,8 +244,14 @@ if option == "Home":
             st.markdown("<br>", unsafe_allow_html=True)
             analyze = st.form_submit_button("Analyze Sentiment", type="primary", use_container_width=True)
 
-    if analyze:
-        if user_input.strip():
+    if analyze and user_input.strip():
+        st.session_state["last_input"] = user_input
+        st.session_state["last_source"] = source_type
+
+    if st.session_state.get("last_input"):
+        user_input  = st.session_state["last_input"]
+        source_type = st.session_state.get("last_source", "general")
+        if True:
             lines = [l.strip() for l in user_input.strip().split("\n") if l.strip()]
 
             if len(lines) == 1:
@@ -323,8 +330,7 @@ if option == "Home":
                     st.plotly_chart(fig, use_container_width=True)
                 except Exception:
                     pass
-        else:
-            st.warning("Please enter some text!")
+
 
     st.divider()
     st.markdown('<p class="section-header">ℹ️ Source Type Weighting</p>', unsafe_allow_html=True)
