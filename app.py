@@ -25,6 +25,8 @@ st.markdown("""
 .big-title { font-size: 30px; font-weight: 800; line-height: 1.3; margin-bottom: 4px; }
 .sub-title { font-size: 14px; color: #888; margin-bottom: 0; }
 .section-header { font-size: 18px; font-weight: 700; margin: 8px 0 4px 0; }
+.model-label { font-size: 13px; color: #666; margin-bottom: 4px; }
+.model-value { font-size: 15px; font-weight: 700; line-height: 1.4; }
 div[data-testid="stSidebar"] { background: #0f1117; }
 div[data-testid="stSidebar"] * { color: #fafafa !important; }
 div[data-testid="stSidebar"] hr { border-color: #333 !important; }
@@ -36,14 +38,8 @@ div[data-testid="stSidebar"] hr { border-color: #333 !important; }
 .stSelectbox > div > div { border-radius: 8px; }
 .stTextArea > div > div { border-radius: 8px; }
 .stTextInput > div > div { border-radius: 8px; }
-
-/* Hide the CONNECTING / RUNNING status banner and spinner */
 [data-testid="stStatusWidget"] { display: none !important; }
-#MainMenu { display: none !important; }
-[data-testid="stToolbar"] { display: none !important; }
-.stDeployButton { display: none !important; }
 [data-testid="stConnectionStatus"] { display: none !important; }
-[data-testid="stAppViewBlockContainer"] > div > div > div[class*="StatusWidget"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -103,7 +99,6 @@ def mark_negation(tokens):
     return result
 
 def clean_text_ml(text):
-    """Negation-aware cleaning for reviews/general."""
     text = str(text).lower()
     text = re.sub(r"@\w+", "", text)
     text = re.sub(r"won't", "will not", text)
@@ -123,7 +118,6 @@ def clean_text_ml(text):
     return result if result else "unknown"
 
 def clean_text_simple(text):
-    """Simple cleaning for news/social — no negation mapping."""
     text = str(text).lower()
     text = re.sub(r"http\S+|www\S+|https\S+", "", text, flags=re.MULTILINE)
     text = re.sub(r"@\w+|\#", "", text)
@@ -183,14 +177,14 @@ def get_hybrid_sentiment(text, model, tfidf, source_type="general"):
 
     return label, round(confidence * 100, 1), cleaned, round(final_score, 4)
 
+# ── Original stable model loading (no show_spinner to avoid re-run loop) ──
+@st.cache_resource
 def load_model():
-    if "model" not in st.session_state or "tfidf" not in st.session_state:
-        st.session_state.model = joblib.load("sentiment_model_final.pkl")
-        st.session_state.tfidf = joblib.load("tfidf_vectorizer_final.pkl")
+    model = joblib.load("sentiment_model_final.pkl")
+    tfidf = joblib.load("tfidf_vectorizer_final.pkl")
+    return model, tfidf
 
-load_model()
-model = st.session_state.model
-tfidf = st.session_state.tfidf
+model, tfidf = load_model()
 
 # ── SIDEBAR ──
 st.sidebar.markdown("## 🧠 Intelligence Engine")
@@ -205,7 +199,7 @@ st.sidebar.caption("AI-Driven Sentiment Analysis for\nBrand & Product Intelligen
 st.sidebar.divider()
 st.sidebar.markdown("**Model**")
 st.sidebar.caption("Hybrid (Logistic Regression + TF-IDF + VADER)")
-st.sidebar.caption("Accuracy: **80.55%**")  # CHANGE 1
+st.sidebar.caption("Accuracy: **80.55%**")
 st.sidebar.divider()
 st.sidebar.caption("BCA Capstone | CAN304\nDIT University")
 
@@ -218,8 +212,10 @@ if option == "Home":
     st.divider()
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Model", "Hybrid (Logistic Regression + TF-IDF + VADER)")
-    c2.metric("Accuracy", "80.55%", "+13.24% vs VADER")  # CHANGE 2
+    with c1:
+        st.markdown('<p class="model-label">Model</p>', unsafe_allow_html=True)
+        st.markdown('<p class="model-value">Hybrid (Logistic Regression + TF-IDF + VADER)</p>', unsafe_allow_html=True)
+    c2.metric("Accuracy", "80.55%", "+13.24% vs VADER")
     c3.metric("Training Dataset", "Sentiment140")
     c4.metric("Training Samples", "100,000")
     st.divider()
@@ -235,12 +231,10 @@ if option == "Home":
     st.divider()
     st.markdown('<p class="section-header">📝 Analyze Text</p>', unsafe_allow_html=True)
 
-    # Use session_state keys so text survives re-runs without any form
     user_input = st.text_area(
         "Enter text — single line or paste multiple reviews (one per line):",
         height=140,
-        placeholder="e.g.\nnot bad at all\nnothing great about this product\nthis is absolutely amazing!",
-        key="analyze_text_input"
+        placeholder="e.g.\nnot bad at all\nnothing great about this product\nthis is absolutely amazing!"
     )
 
     col1, col2 = st.columns([2, 1])
@@ -248,22 +242,14 @@ if option == "Home":
         source_type = st.selectbox(
             "Text Source Type",
             ["general", "review", "social", "news"],
-            help="Affects ML vs VADER weighting. review=ML 80% | news=VADER 60% | social=balanced | general=default",
-            key="analyze_source_type"
+            help="Affects ML vs VADER weighting. review=ML 80% | news=VADER 60% | social=balanced | general=default"
         )
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Analyze Sentiment", type="primary", use_container_width=True, key="analyze_btn"):
-            if st.session_state.analyze_text_input.strip():
-                st.session_state["last_input"]  = st.session_state.analyze_text_input
-                st.session_state["last_source"] = st.session_state.analyze_source_type
-            else:
-                st.warning("Please enter some text!")
+        analyze = st.button("Analyze Sentiment", type="primary", use_container_width=True)
 
-    if st.session_state.get("last_input"):
-        user_input  = st.session_state["last_input"]
-        source_type = st.session_state.get("last_source", "general")
-        if True:
+    if analyze:
+        if user_input.strip():
             lines = [l.strip() for l in user_input.strip().split("\n") if l.strip()]
 
             if len(lines) == 1:
@@ -342,7 +328,8 @@ if option == "Home":
                     st.plotly_chart(fig, use_container_width=True)
                 except Exception:
                     pass
-
+        else:
+            st.warning("Please enter some text!")
 
     st.divider()
     st.markdown('<p class="section-header">ℹ️ Source Type Weighting</p>', unsafe_allow_html=True)
@@ -444,7 +431,6 @@ elif option == "Live Brand Monitor":
                             "Link":           link
                         })
 
-                    # Fallback to partial match
                     if not data:
                         for art in articles:
                             title = art.get("title", "")
@@ -661,25 +647,24 @@ elif option == "Model Performance":
     st.divider()
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Best Accuracy",      "80.55%")   # CHANGE 5
-    c2.metric("vs VADER baseline",  "+13.24%")
-    c3.metric("Precision",          "0.81")     # CHANGE 4
-    c4.metric("F1-Score",           "0.81")     # CHANGE 4
+    c1.metric("Best Accuracy",     "80.55%")
+    c2.metric("vs VADER baseline", "+13.24%")
+    c3.metric("Precision",         "0.81")
+    c4.metric("F1-Score",          "0.81")
     st.divider()
 
-    # updated model leaderboard with full names
     model_data = pd.DataFrame({
-        "Model":    [
+        "Model": [
             "VADER",
             "TextCNN (Deep Learning)",
             "Naive Bayes + Bag of Words",
-            "BiLSTM (Deep Learning)",
             "Naive Bayes + TF-IDF",
+            "BiLSTM (Deep Learning)",
             "Logistic Regression + TF-IDF",
             "Hybrid (Logistic Regression + TF-IDF + VADER)"
         ],
-        "Accuracy": [67.31, 77.16, 77.45, 78.92, 78.83, 79.57, 80.55],
-        "Type":     ["Lexicon", "Deep Learning", "ML", "Deep Learning", "ML", "ML", "Hybrid"]
+        "Accuracy": [67.31, 77.16, 77.45, 78.83, 78.92, 79.57, 80.55],
+        "Type":     ["Lexicon", "Deep Learning", "ML", "ML", "Deep Learning", "ML", "Hybrid"]
     })
 
     try:
@@ -721,7 +706,7 @@ elif option == "Model Performance":
             lambda x: "✅ Best" if x == 80.55 else ""
         )
         st.dataframe(
-            display_df[["Model","Type","Accuracy","Status"]].sort_values(
+            display_df[["Model", "Type", "Accuracy", "Status"]].sort_values(
                 "Accuracy", ascending=False
             ),
             use_container_width=True, hide_index=True
@@ -731,9 +716,9 @@ elif option == "Model Performance":
         st.markdown("**Classification Report — Hybrid (Logistic Regression + TF-IDF + VADER)**")
         st.dataframe(pd.DataFrame({
             "Class":     ["Negative", "Positive", "Macro Avg"],
-            "Precision": [0.81, 0.81, 0.81],   # CHANGE 4
-            "Recall":    [0.81, 0.81, 0.81],   # CHANGE 4
-            "F1-Score":  [0.81, 0.81, 0.81],   # CHANGE 4
+            "Precision": [0.81, 0.81, 0.81],
+            "Recall":    [0.81, 0.81, 0.81],
+            "F1-Score":  [0.81, 0.81, 0.81],
             "Support":   [9989, 10011, 20000],
         }), use_container_width=True, hide_index=True)
 
@@ -745,8 +730,9 @@ elif option == "Model Performance":
     It is included as a **baseline** to demonstrate that supervised ML outperforms
     unsupervised lexicon methods.
 
-    In our Hybrid (Logistic Regression + TF-IDF + VADER) model, VADER contributes as **extra signal** (3 features: pos, neg,
-    compound scores) alongside 100,000 TF-IDF features — not as the primary classifier.
+    In our **Hybrid (Logistic Regression + TF-IDF + VADER)** model, VADER contributes
+    as **extra signal** (3 features: pos, neg, compound scores) alongside 100,000
+    TF-IDF features — not as the primary classifier.
     This combination gives us +13.24% over VADER standalone.
     """)
 
