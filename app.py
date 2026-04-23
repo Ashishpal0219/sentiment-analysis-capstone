@@ -36,6 +36,14 @@ div[data-testid="stSidebar"] hr { border-color: #333 !important; }
 .stSelectbox > div > div { border-radius: 8px; }
 .stTextArea > div > div { border-radius: 8px; }
 .stTextInput > div > div { border-radius: 8px; }
+
+/* Hide the CONNECTING / RUNNING status banner and spinner */
+[data-testid="stStatusWidget"] { display: none !important; }
+#MainMenu { display: none !important; }
+[data-testid="stToolbar"] { display: none !important; }
+.stDeployButton { display: none !important; }
+[data-testid="stConnectionStatus"] { display: none !important; }
+[data-testid="stAppViewBlockContainer"] > div > div > div[class*="StatusWidget"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -227,26 +235,30 @@ if option == "Home":
     st.divider()
     st.markdown('<p class="section-header">📝 Analyze Text</p>', unsafe_allow_html=True)
 
-    with st.form(key="analyze_form", clear_on_submit=False):
-        user_input = st.text_area(
-            "Enter text — single line or paste multiple reviews (one per line):",
-            height=140,
-            placeholder="e.g.\nnot bad at all\nnothing great about this product\nthis is absolutely amazing!"
-        )
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            source_type = st.selectbox(
-                "Text Source Type",
-                ["general", "review", "social", "news"],
-                help="Affects ML vs VADER weighting. review=ML 80% | news=VADER 60% | social=balanced | general=default"
-            )
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            analyze = st.form_submit_button("Analyze Sentiment", type="primary", use_container_width=True)
+    # Use session_state keys so text survives re-runs without any form
+    user_input = st.text_area(
+        "Enter text — single line or paste multiple reviews (one per line):",
+        height=140,
+        placeholder="e.g.\nnot bad at all\nnothing great about this product\nthis is absolutely amazing!",
+        key="analyze_text_input"
+    )
 
-    if analyze and user_input.strip():
-        st.session_state["last_input"] = user_input
-        st.session_state["last_source"] = source_type
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        source_type = st.selectbox(
+            "Text Source Type",
+            ["general", "review", "social", "news"],
+            help="Affects ML vs VADER weighting. review=ML 80% | news=VADER 60% | social=balanced | general=default",
+            key="analyze_source_type"
+        )
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Analyze Sentiment", type="primary", use_container_width=True, key="analyze_btn"):
+            if st.session_state.analyze_text_input.strip():
+                st.session_state["last_input"]  = st.session_state.analyze_text_input
+                st.session_state["last_source"] = st.session_state.analyze_source_type
+            else:
+                st.warning("Please enter some text!")
 
     if st.session_state.get("last_input"):
         user_input  = st.session_state["last_input"]
